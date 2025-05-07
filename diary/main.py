@@ -273,7 +273,7 @@ root.geometry("450x350")
 tk.Label(root, text="Введите ФИО и пароль для входа:").pack(pady=10)
 entry_login = tk.Entry(root, width=40)
 entry_login.pack(pady=5)
-entry_password = tk.Entry(root, width=40)
+entry_password = tk.Entry(root, width=40, show='*')
 entry_password.pack(pady=5)
 
 tk.Button(root, text="Войти", command=login, width=20, height=2).pack(pady=10)
