@@ -3,7 +3,7 @@ import sqlite3
 def get_subjects():
     conn = sqlite3.connect("diary.db")
     c = conn.cursor()
-    c.execute("SELECT DISTINCT subject FROM grades")
+    c.execute("SELECT name FROM subjects")
     subjects = [row[0] for row in c.fetchall()]
     conn.close()
     return subjects
@@ -11,7 +11,7 @@ def get_subjects():
 def subject_exists(subject):
     conn = sqlite3.connect("diary.db")
     c = conn.cursor()
-    c.execute("SELECT 1 FROM grades WHERE subject=? LIMIT 1", (subject,))
+    c.execute("SELECT 1 FROM subjects WHERE subject=? LIMIT 1", (subject,))
     exists = c.fetchone() is not None
     conn.close()
     return exists
@@ -20,9 +20,9 @@ def get_grades_by_student(student_id, subject_filter=None):
     conn = sqlite3.connect("diary.db")
     c = conn.cursor()
     if subject_filter:
-        c.execute("SELECT subject, grade FROM grades WHERE student_id=? AND subject=?", (student_id, subject_filter))
+        c.execute("SELECT subject, grade, date FROM grades WHERE student_id=? AND subject=?", (student_id, subject_filter))
     else:
-        c.execute("SELECT subject, grade FROM grades WHERE student_id=?", (student_id,))
+        c.execute("SELECT subject, grade, date FROM grades WHERE student_id=?", (student_id,))
     data = c.fetchall()
     conn.close()
     return data

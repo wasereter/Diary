@@ -4,50 +4,59 @@ from db import init_db
 from auth import register_user, login_user
 from utils import get_subjects, get_grades_by_student, get_avg_by_subject
 import sqlite3
-
-
+from datetime import datetime
 
 current_user = None
 
+root = tk.Tk()
+root.title("Электронный дневник")
+root.geometry("450x350")
 
-def register():
+def register(win):
     def submit():
         fio = entry_fio.get().strip()
         group = entry_group.get().strip()
         password = entry_password.get().strip()
 
-        if not fio or not group or not password:
-            messagebox.showerror("Ошибка", "Все поля должны быть заполнены")
+        if not fio or not group or not password or not role_var.get():
+            messagebox.showerror("Ошибка", "Все поля должны быть заполнены и роль выбрана")
             return
 
         # Попытка регистрации пользователя
-        if register_user(fio, group, role_var.get(), password):
-            messagebox.showinfo("Успех", "Пользователь зарегистрирован")
-            top.destroy()
+        result = register_user(fio, group, role_var.get(), password)
+        if "успешно зарегистрирован" in result:
+            messagebox.showinfo("Успех", result)
+            win.destroy()
         else:
-            messagebox.showerror("Ошибка",
-                                 "Не удалось зарегистрировать пользователя. Возможно, пользователь с таким ФИО уже существует.")
+            messagebox.showerror("Ошибка", result)
 
-    top = tk.Toplevel()
-    top.title("Регистрация")
-    tk.Label(top, text="ФИО:").pack()
-    entry_fio = tk.Entry(top)
+    tk.Label(win, text="ФИО:", width=50, height=2).pack()
+    entry_fio = tk.Entry(win)
     entry_fio.pack()
 
-    tk.Label(top, text="Группа:").pack()
-    entry_group = tk.Entry(top)
+    tk.Label(win, text="Группа:", width=50, height=2).pack()
+    entry_group = tk.Entry(win)
     entry_group.pack()
 
-    tk.Label(top, text="Пароль:").pack()
-    entry_password = tk.Entry(top, show="*")
+    tk.Label(win, text="Пароль:", width=50, height=2).pack()
+    entry_password = tk.Entry(win, show="*")
     entry_password.pack()
 
-    role_var = tk.StringVar(value="student")
-    tk.Radiobutton(top, text="Ученик", variable=role_var, value="student").pack()
-    tk.Radiobutton(top, text="Учитель", variable=role_var, value="teacher").pack()
+    role_var = tk.StringVar(value="student")  # Установка значения по умолчанию на "Ученик"
+    tk.Radiobutton(win, text="Ученик", variable=role_var, value="student", width=50, height=2).pack()
+    tk.Radiobutton(win, text="Учитель", variable=role_var, value="teacher", width=50, height=2).pack()
+    tk.Radiobutton(win, text="Администратор", variable=role_var, value="admin", width=50, height=2).pack()
 
-    tk.Button(top, text="Зарегистрироваться", command=submit).pack()
+    tk.Button(win, text="Зарегистрироваться", command=submit, width=50, height=2).pack()
 
+def create_initial_admin():
+    # Попробуем создать учетную запись администратора, если она не существует
+    admin_fio = "admin"
+    admin_password = "admin"
+    role = "admin"
+    register_user(admin_fio, None, role, admin_password)
+
+create_initial_admin()
 
 def login():
     global current_user
@@ -65,34 +74,45 @@ def login():
     else:
         messagebox.showerror("Ошибка", "Пользователь не найден или неверный пароль")
 
+
 def load_interface():
-    global current_user  # Обратите внимание, что мы используем глобальную переменную
+    global current_user
     if current_user is None:
         messagebox.showerror("Ошибка", "Не удалось загрузить информацию о пользователе.")
         return
 
-    root.withdraw()  # Скрываем главное окно
-    full = tk.Tk()
-    full.geometry("600x400")
+    role = current_user[3]
 
-    role = current_user[3]  # Предполагаем, что роль пользователя хранится в четвертом элементе
-    if role == "student":
-        display_student(full)  # Отобразить интерфейс для ученика
-    elif role == "teacher":
-        display_teacher(full)  # Отобразить интерфейс для учителя
+    if role == "admin":
+        root.withdraw()  # Закрываем главное окно
+        register(tk.Toplevel())  # Открываем окно регистрации
     else:
-        messagebox.showerror("Ошибка", "Неизвестная роль пользователя.")  # Отображаем интерфейс для учителя
+        root.withdraw()  # Скрываем главное окно
+        full = tk.Toplevel()  # Создаем новое окно для студентов и учителей
+        full.geometry("600x400")
+
+        if role == "student":
+            display_student(full)  # Отобразить интерфейс для ученика
+        elif role == "teacher":
+            display_teacher(full)  # Отобразить интерфейс для учителя
+        else:
+            messagebox.showerror("Ошибка", "Неизвестная роль пользователя.")
 
 def display_student(win):
     subjects = ["Все"] + get_subjects()
     sub_var = tk.StringVar(value="Все")
 
+    tree = ttk.Treeview(win, columns=("Предмет", "Оценка", "Дата"), show="headings", height=10)
+    tree.heading("Предмет", text="Предмет")
+    tree.heading("Оценка", text="Оценка")
+    tree.heading("Дата", text="Дата")
+
     def refresh_table():
         tree.delete(*tree.get_children())
-        subject = sub_var.get()
+        subject = subject_combobox.get()
         data = get_grades_by_student(current_user[0], subject if subject != "Все" else None)
-        for subj, grade in data:
-            tree.insert('', 'end', values=(subj, grade))
+        for subj, grade, date in data:
+            tree.insert('', 'end', values=(subj, grade, date))
 
         # Средний балл
         if subject != "Все":
@@ -102,7 +122,7 @@ def display_student(win):
             avg_label.config(text="")
 
     def show_avg():
-        subject = sub_var.get()
+        subject = subject_combobox.get()
         if subject == "Все":
             messagebox.showinfo("Средний балл", "Выберите конкретный предмет")
             return
@@ -116,12 +136,9 @@ def display_student(win):
 
     # Интерфейс
     tk.Label(win, text="Выберите предмет:", font=("Helvetica", 12)).pack(pady=10)
-    subject_menu = tk.OptionMenu(win, sub_var, *subjects, command=lambda _: refresh_table())
-    subject_menu.pack()
-
-    tree = ttk.Treeview(win, columns=("Предмет", "Оценка"), show="headings", height=10)
-    tree.heading("Предмет", text="Предмет")
-    tree.heading("Оценка", text="Оценка")
+    subject_combobox = ttk.Combobox(win, textvariable=sub_var, values=subjects)
+    subject_combobox.bind("<<ComboboxSelected>>", lambda _: refresh_table())
+    subject_combobox.pack(pady=5)
     tree.pack(fill='both', expand=True, padx=10, pady=10)
 
     avg_label = tk.Label(win, font=("Helvetica", 12, "italic"))
@@ -131,70 +148,67 @@ def display_student(win):
 
     refresh_table()
 
-
 def display_teacher(win):
+    tk.Label(win, text="Группа").pack()
+    group_var = tk.StringVar()
+    group_combo = ttk.Combobox(win, textvariable=group_var, state="readonly")
+    group_combo.pack()
+
     tk.Label(win, text="ФИО ученика").pack()
-
     student_var = tk.StringVar()
-    student_menu = tk.OptionMenu(win, student_var, "")
-    student_menu.pack()
+    student_combo = ttk.Combobox(win, textvariable=student_var, state="readonly")
+    student_combo.pack()
 
-    group_var = tk.StringVar()  # Добавим выбор группы
-    group_menu = tk.OptionMenu(win, group_var, "")
-    group_menu.pack()
-
-    # Функция для обновления списка студентов по группам
-    def update_students():
+    # Обновить список групп
+    def update_groups():
         conn = sqlite3.connect("diary.db")
         c = conn.cursor()
         c.execute("SELECT DISTINCT group_name FROM users WHERE role='student'")
         groups = [g[0] for g in c.fetchall()]
         conn.close()
 
-        menu = group_menu["menu"]
-        menu.delete(0, "end")
-        for group in groups:
-            menu.add_command(label=group, command=lambda value=group: group_var.set(value))
+        group_combo['values'] = groups
         if groups:
-            group_var.set(groups[0])
+            group_combo.current(0)  # Устанавливаем первую группу как активную
+            update_students_by_group()
 
-    update_students()
-
-    # Функция для обновления студентов в зависимости от выбранной группы
-    def update_students_by_group():
+    # Обновление списка студентов в зависимости от выбранной группы
+    def update_students_by_group(*args):
+        selected_group = group_combo.get()
         conn = sqlite3.connect("diary.db")
         c = conn.cursor()
-        c.execute("SELECT fio FROM users WHERE role='student' AND group_name=?", (group_var.get(),))
+        c.execute("SELECT fio FROM users WHERE role='student' AND group_name=?", (selected_group,))
         students = [s[0] for s in c.fetchall()]
         conn.close()
 
-        menu = student_menu["menu"]
-        menu.delete(0, "end")
-        for s in students:
-            menu.add_command(label=s, command=lambda value=s: student_var.set(value))
+        student_combo['values'] = students
         if students:
-            student_var.set(students[0])
+            student_var.set(students[0])  # Выбор первого студента по умолчанию
+        else:
+            student_var.set("")
 
-    group_var.trace("w", lambda *args: update_students_by_group())  # Обновление студентов при выборе группы
+    # Привязываем функцию для обновления студентов к выбору группы
+    group_combo.bind("<<ComboboxSelected>>", update_students_by_group)
+    group_var.trace_add("write", update_students_by_group)
+    update_groups()
 
-    # Обновление списка предметов
+    # Список предметов
     tk.Label(win, text="Предмет").pack()
     subject_var = tk.StringVar()
-    subject_menu = tk.OptionMenu(win, subject_var, "")
-    subject_menu.pack()
+    subject_combo = ttk.Combobox(win, textvariable=subject_var, state="readonly")
+    subject_combo.pack()
 
     def update_subjects():
         subjects = get_subjects()
-        menu = subject_menu["menu"]
-        menu.delete(0, "end")
-        for s in subjects:
-            menu.add_command(label=s, command=lambda value=s: subject_var.set(value))
+        subject_combo['values'] = subjects
         if subjects:
             subject_var.set(subjects[0])
+        else:
+            subject_var.set("")
 
     update_subjects()
 
-    # Добавление нового предмета
+    # Новый предмет
     tk.Label(win, text="Новый предмет (если нужно):").pack()
     entry_new_subject = tk.Entry(win)
     entry_new_subject.pack()
@@ -208,25 +222,35 @@ def display_teacher(win):
         if new_subj in subjects:
             messagebox.showinfo("Инфо", "Такой предмет уже существует")
         else:
-            # Добавляем предмет в базу данных
             conn = sqlite3.connect("diary.db")
             c = conn.cursor()
-            c.execute("INSERT INTO grades (subject) VALUES (?)", (new_subj,))
+            c.execute("INSERT INTO subjects (name) VALUES (?)", (new_subj,))
             conn.commit()
             conn.close()
             messagebox.showinfo("Ок", f"Предмет '{new_subj}' добавлен")
-            update_subjects()  # Обновляем список предметов
+            update_subjects()
 
     tk.Button(win, text="Добавить предмет", command=add_new_subject).pack(pady=5)
 
-    # Оценка студента
+    # Ввод оценки
     tk.Label(win, text="Оценка (1-5)").pack()
     entry_grade = tk.Entry(win)
     entry_grade.pack()
 
+    def is_valid_date(date_str):
+        try:
+            datetime.strptime(date_str, "%d-%m-%Y")
+            return True
+        except ValueError:
+            return False
+
+    tk.Label(win, text="Дата оценки (дд-мм-гггг)").pack()
+    entry_date = tk.Entry(win)
+    entry_date.pack()
+
     def submit_grade():
-        fio = student_var.get()
-        subject = subject_var.get()
+        fio = student_combo.get()
+        subject = subject_combo.get()
         try:
             grade = int(entry_grade.get())
             if not (1 <= grade <= 5):
@@ -240,35 +264,48 @@ def display_teacher(win):
         c.execute("SELECT id FROM users WHERE fio = ? AND role = 'student'", (fio,))
         stu = c.fetchone()
         if stu:
-            # Записываем оценку в базу
-            c.execute("INSERT INTO grades (student_id, subject, grade) VALUES (?, ?, ?)", (stu[0], subject, grade))
+            date_str = entry_date.get().strip()
+            if not is_valid_date(date_str):
+                messagebox.showerror("Ошибка", "Введите корректную дату в формате дд-мм-гггг")
+                return
+            c.execute(
+                "INSERT INTO grades (student_id, subject, grade, date) VALUES (?, ?, ?, ?)",
+                (stu[0], subject, grade, date_str))
             conn.commit()
             messagebox.showinfo("Ок", "Оценка добавлена")
         else:
             messagebox.showerror("Ошибка", "Ученик не найден")
         conn.close()
 
-    # Показать средний балл
-    def show_avg():
-        fio = student_var.get()
-        subject = subject_var.get()
+    def update_stu_id(*args):
+        global stu_id
+        fio = student_combo.get()
         conn = sqlite3.connect("diary.db")
         c = conn.cursor()
         c.execute("SELECT id FROM users WHERE fio = ? AND role = 'student'", (fio,))
         stu = c.fetchone()
-        if stu:
-            c.execute("SELECT AVG(grade) FROM grades WHERE student_id=? AND subject=?", (stu[0], subject))
-            avg = c.fetchone()[0]
-            messagebox.showinfo("Средний балл", f"{fio} по {subject}: {round(avg, 2) if avg else 'нет данных'}")
+        stu_id = stu[0] if stu else None  # Обновляем значение stu_id в зависимости от выбора
+
         conn.close()
 
-    # Кнопки
+    def show_avg():
+        subject = subject_combo.get()
+        if stu_id is not None:
+            conn = sqlite3.connect("diary.db")
+            c = conn.cursor()
+            c.execute("SELECT AVG(grade) FROM grades WHERE student_id=? AND subject=?", (stu_id, subject))
+            avg = c.fetchone()[0]
+            messagebox.showinfo("Средний балл",
+                                f"{student_combo.get()} по {subject}: {round(avg, 2) if avg else 'нет данных'}")
+            conn.close()
+        else:
+            messagebox.showwarning("Ошибка", "Выберите студента для расчета среднего балла.")
+
+    # Привязать обновление студента к изменению в student_combo
+    student_combo.bind("<<ComboboxSelected>>", update_stu_id)
+
     tk.Button(win, text="Добавить", command=submit_grade).pack()
     tk.Button(win, text="Средний балл", command=show_avg).pack()
-
-root = tk.Tk()
-root.title("Электронный дневник")
-root.geometry("450x350")
 
 tk.Label(root, text="Введите ФИО и пароль для входа:").pack(pady=10)
 entry_login = tk.Entry(root, width=40)

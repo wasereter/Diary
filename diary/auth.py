@@ -28,4 +28,4 @@ def login_user(fio, password):
     c.execute("SELECT * FROM users WHERE fio=? AND password=?", (fio, hashed_password))
     user = c.fetchone()
     conn.close()
-    return user  # (id, role)
+    return user
