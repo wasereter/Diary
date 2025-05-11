@@ -10,7 +10,7 @@ current_user = None
 
 root = tk.Tk()
 root.title("Электронный дневник")
-root.geometry("450x350")
+root.geometry("600x450")
 
 def register(win):
     def submit():
@@ -89,7 +89,7 @@ def load_interface():
     else:
         root.withdraw()  # Скрываем главное окно
         full = tk.Toplevel()  # Создаем новое окно для студентов и учителей
-        full.geometry("600x400")
+        full.geometry("550x450")
 
         if role == "student":
             display_student(full)  # Отобразить интерфейс для ученика
@@ -314,7 +314,6 @@ entry_password = tk.Entry(root, width=40, show='*')
 entry_password.pack(pady=5)
 
 tk.Button(root, text="Войти", command=login, width=20, height=2).pack(pady=10)
-tk.Button(root, text="Регистрация", command=register, width=20, height=2).pack()
 
 init_db()
 
